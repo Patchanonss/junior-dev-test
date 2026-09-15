@@ -1,0 +1,27 @@
+--- a/theOneStore.js
++++ b/theOneStore.js
+@@
+-function setTheOne(chamber, sessionId, timeUsed = 0) {
+-  fakeDb[chamber] = { sessionId, timeUsed, theOne: true };
+-  memory[chamber] = { sessionId, timeUsed };
+-  emit(`${chamber}TheOneChanged`, { sessionId });
+-}
++function setTheOne(chamber, sessionId, timeUsed = 0) {
++  memory[chamber] = { sessionId, timeUsed };
++  emit(`${chamber}TheOneChanged`, { sessionId });
++  fakeDb[chamber] = { sessionId, timeUsed, theOne: true };
++}
+@@
+-function tick(chamber, secondsElapsed) {
+-  if (fakeDb[chamber]) fakeDb[chamber].timeUsed = secondsElapsed;
+-  if (memory[chamber]) memory[chamber].timeUsed = secondsElapsed;
+-}
++let pendingWrite = {};
++function tick(chamber, secondsElapsed) {
++  if (memory[chamber]) memory[chamber].timeUsed = secondsElapsed;
++  pendingWrite[chamber] = secondsElapsed;
++  // batch DB writes every 10 ticks instead of every tick, to cut write volume
++  if (secondsElapsed % 10 === 0 && fakeDb[chamber]) {
++    fakeDb[chamber].timeUsed = pendingWrite[chamber];
++  }
++}
