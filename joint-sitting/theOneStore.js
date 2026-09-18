@@ -20,7 +20,6 @@ function _resetForTests() {
   emittedEvents.length = 0;
 }
 
-/** Simulates a session becoming live: clear old, set new, update memory, emit. */
 function setTheOne(chamber, sessionId, timeUsed = 0) {
   fakeDb[chamber] = { sessionId, timeUsed, theOne: true };
   memory[chamber] = { sessionId, timeUsed };
@@ -35,7 +34,7 @@ function clearTheOne(chamber) {
 
 /** Simulates the per-second timer tick: fire-and-forget write of elapsed time. */
 function tick(chamber, secondsElapsed) {
-  if (fakeDb[chamber]) fakeDb[chamber].timeUsed = secondsElapsed;
+  if (fakeDb[chamber] && !fakeDb[chamber].suspended) fakeDb[chamber].timeUsed = secondsElapsed;
   if (memory[chamber]) memory[chamber].timeUsed = secondsElapsed;
 }
 
@@ -54,7 +53,12 @@ function restoreFromDb(chamber) {
  * able to bring back which chamber was suspended and how much time it had used.
  */
 function startJointSitting(presidingChamber) {
-  throw new Error('not implemented');
+  const alreadySuspended = Object.keys(fakeDb).find(c => fakeDb[c]?.suspended === true);
+  if (alreadySuspended) throw Error("Already active Joint sitting"); 
+  const otherChamber = presidingChamber === 'representative' ? 'senate' : 'representative';
+
+  fakeDb[otherChamber].suspended = true 
+  clearTheOne(otherChamber)
 }
 
 /**
@@ -62,7 +66,13 @@ function startJointSitting(presidingChamber) {
  * session/timeUsed it had when the joint sitting started.
  */
 function endJointSitting() {
-  throw new Error('not implemented');
+  const suspendedChamber = Object.keys(fakeDb).find(
+  chamber => fakeDb[chamber]?.suspended === true
+);
+  if (!suspendedChamber) return; // ไม่มีประชุมร่วมอยู่ → ไม่ทำอะไร
+  const row = fakeDb[suspendedChamber];
+  memory[suspendedChamber] = { sessionId: row.sessionId, timeUsed: row.timeUsed };
+  fakeDb[suspendedChamber].suspended = false;
 }
 
 module.exports = {

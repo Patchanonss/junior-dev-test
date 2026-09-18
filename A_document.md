@@ -1,0 +1,7 @@
+1. เพิ่ม state suspended ใน DB. suspended จะบอกว่าสภาไหนถูกพักอยู่
+2. เริ่มประชุมร่วม -> เช็คว่ามี session ที่ถูก set suspended == true อยู่แล้วไหม(ถ้ามีแปลว่าการประชุมร่วมเริ่มขึ้นไปแล้ว ไม่ต้องสั่งซ้ำ เพราะคนกดพูดก่อนได้พูดก่อน)(เอาไว้ดักเคสกดปุ่มซ้ำ) -> set flag suspended ของฝั่งที่ไม่ได้พูดคือ suspended = true -> ลบฝั่งที่ไม่ได้พูดออกจาก cache(memory) โดยใช้ cleartheone -> พูดไป -> จบประชุม -> หาข้อมูลจาก DB เอาที่ suspended == true(chamber ที่ไม่ได้พูด) -> เอาข้อมูล sessionId และ timeUsed กลับเข้าไปสู่ memory -> set suspended ของ chamber นั้นให้เป็น false
+3. ใน startJoint ถ้าเรา clearTheOne ก่อน set suspended = true ระบบจะลืมว่ามีประชุมร่วมอยู่ถ้า crash สิ่งที่ทำคือเรา set suspended = true ก่อนแล้วค่อย clearTheOne. แต่ในสภาพแวดล้อมจริงๆควรพยายามทำให้ clearTheOne กับ suspended = true นั้นเป็น Atomic
+- ดักเคส `tick` ยิงมาที่ chamber ที่ถูกพัก: เราป้องกันไม่ให้ timer อัปเดตทับค่า `timeUsed` ใน DB ในขณะที่สภานั้นถูก suspended อยู่ (ไม่งั้นเวลาที่ถูกเซฟไว้จะเพี้ยนตอน restore)
+- ดักเคส `endJointSitting` ถูกเรียกตอนที่ไม่มีประชุมร่วม: เราเช็คก่อนว่ามี chamber ที่ `suspended: true` อยู่ไหม ถ้าไม่มีก็จะ return ทันทีเพื่อป้องกันแอปร่วง (crash) จากการพยายามหาข้อมูลของ `undefined`
+4. ไม่ทำ: explicit isJointSitting flag ใน DB. แทนที่จะเก็บ { isJointSitting: true, presidingChamber: 'representative' } แยกต่างหาก เลือก derive state นี้จาก suspended: true
+เหตุผล: การเพิ่ม flag มาหมายความว่ามี data ที่ต้อง tracking และแก้ไขเพิ่ม และมันสร้าง potential bug ในอนาคตได้.
